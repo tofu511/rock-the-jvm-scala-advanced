@@ -59,7 +59,7 @@ object LazyEvaluation extends App {
     def tail: MyStream[A]
 
     def #::[B >: A](element: B): MyStream[B]
-    def ++[B >: A](anotherStream: MyStream[B]): MyStream[B]
+    def ++[B >: A](anotherStream: => MyStream[B]): MyStream[B]
 
     def foreach(f: A => Unit): Unit
     def map[B](f: A => B): MyStream[B]
@@ -85,7 +85,7 @@ object LazyEvaluation extends App {
     def tail: MyStream[Nothing] = throw new NoSuchElementException
 
     def #::[B >: Nothing](element: B): MyStream[B] = new Cons[B](element, this)
-    def ++[B >: Nothing](anotherStream: MyStream[B]): MyStream[B] = anotherStream
+    def ++[B >: Nothing](anotherStream: => MyStream[B]): MyStream[B] = anotherStream
 
     def foreach(f: Nothing => Unit): Unit  = ()
     def map[B](f: Nothing => B): MyStream[B]  = this
@@ -104,7 +104,7 @@ object LazyEvaluation extends App {
     override lazy val tail: MyStream[A] = tl // call by need
 
     def #::[B >: A](element: B): MyStream[B] = new Cons[B](element, this)
-    def ++[B >: A](anotherStream: MyStream[B]): MyStream[B] = new Cons[B](head, tail ++ anotherStream)
+    def ++[B >: A](anotherStream: => MyStream[B]): MyStream[B] = new Cons[B](head, tail ++ anotherStream)
 
     def foreach(f: A => Unit): Unit = {
       f(head)
@@ -137,4 +137,27 @@ object LazyEvaluation extends App {
 
   println(startFrom0.map(_ * 2).take(100).toList())
   println(startFrom0.flatMap(x => new Cons(x, new Cons(x + 1, EmptyStream))).take(10).toList())
+  println(startFrom0.filter(_ < 10).take(10).toList())
+
+  /**
+   * [ first, [ ...
+   * [ first, fibo(second, first + second)
+   */
+  def fibonacci(first: BigInt, second: BigInt): MyStream[BigInt] =
+    new Cons[BigInt](first, fibonacci(second, first + second))
+
+  println(fibonacci(1,1).take(100).toList())
+
+  /*
+    [ 2 3 4 5 6 7 8 9 10 11 12 ...
+    [ 2 3 5 7 9 11 13 ...
+    [ 2 eratosthenes applied to (numbers filtered by n % 2 != 0)
+    [ 2 3 eratosthenes applied to (numbers filtered by n % 3 != 0)
+   */
+  // eratosthenes sieve
+  def eratosthenes(numbers: MyStream[Int]): MyStream[Int] =
+    if (numbers.isEmpty) numbers
+    else new Cons[Int](numbers.head,eratosthenes(numbers.tail.filter(_ % numbers.head != 0)))
+
+  println(eratosthenes(MyStream.from(2)(_ + 1)).take(100).toList())
 }
